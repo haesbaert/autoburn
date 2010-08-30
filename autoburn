@@ -134,7 +134,7 @@ def ask_conf():
 
    while True:
        tmp_conf['workdir'] = raw_input("Enter work directory, default to " \
-                                          + os.environ['HOME'])
+                                          + os.environ['HOME'] + ": ")
        if tmp_conf['workdir']:
            if not os.path.isdir(tmp_conf['workdir']):
                print 'Invalid directory', tmp_conf['workdir']
