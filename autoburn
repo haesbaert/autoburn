@@ -1,0 +1,145 @@
+# -d device
+# default: probe
+# -s source (multiplos)
+# default home
+# -m mail (multiplos)
+# nao mandar
+# -i iterativo?
+# falso
+# -r Don't record
+# falso
+# -w workdir
+# $HOME/.autoburn/
+
+from optparse import OptionParser
+import os
+import pickle
+import pprint
+import sys
+
+ab_root      = os.environ['HOME'] + '/.autoburn/'
+ab_conf_file = ab_root + 'conf'
+ab_options   = None
+
+def main():
+   fconf = dict()
+
+   if not os.path.exists(ab_conf_file):
+       ask_conf()
+   f = open(ab_conf_file, 'rb')
+   fconf = pickle.load(f)
+   f.close()
+
+   pprint.pprint(fconf)
+   parser = OptionParser()
+   parser.add_option('-d', '--device',
+                     dest    = 'device',
+                     action  = 'store',
+                     default = fconf['device'],
+                     help    = 'Device to be used (/dev/sdX)')
+   parser.add_option('-m', '--mail',
+                     dest = 'mails',
+                     action = 'append',
+                     default = [],
+                     help = 'Mail address to be notified')
+   parser.add_option('-s', '--source',
+                     dest = 'sources',
+                     action = 'append',
+                     default = [],
+                     help = 'Source directories to look for data')
+   parser.add_option('-w', '--workdir',
+                     dest = 'workdir',
+                     action = 'store',
+                     default = fconf['workdir'],
+                     help = 'Source directory to temporary files')
+
+   (options, args) = parser.parse_args()
+
+   # Overwrite values
+   options.workdir = '1234'
+#     fconf['device']  = options.device
+#     if options.mails:
+#         fconf['mails'] = options.mails
+#     if options.sources:
+#         fconf['sources'] = options.sources
+#     fconf['workdir'] = options.workdir
+
+   pprint.pprint(fconf)
+
+   print 'options'
+   pprint.pprint(options)
+
+def query_yes_no(question, default="yes"):
+   valid = {"yes":"yes",   "y":"yes",  "ye":"yes",
+            "no":"no",     "n":"no"}
+   if default == None:
+       prompt = " [y/n] "
+   elif default == "yes":
+       prompt = " [Y/n] "
+   elif default == "no":
+       prompt = " [y/N] "
+   else:
+       raise ValueError("invalid default answer: '%s'" % default)
+
+   while 1:
+       sys.stdout.write(question + prompt)
+       choice = raw_input().lower()
+       if default is not None and choice == '':
+           return default
+       elif choice in valid.keys():
+           return valid[choice]
+       else:
+           sys.stdout.write("Please respond with 'yes' or 'no' "\
+                                "(or 'y' or 'n').\n")
+
+def ask_conf():
+   tmp_conf = dict()
+   if not os.path.exists(ab_root):
+       os.makedirs(ab_root)
+
+   tmp_conf['device'] = raw_input("Enter default burning device,
+(enter for probe): ")
+   if not tmp_conf['device']:
+       print "Probing for burning devices..."
+       # TODO probe
+
+   while True:
+       tmp_conf['sources'] = []
+       tmp_conf['sources'] = raw_input("Enter data directories, enter
+to default: ")
+
+       if tmp_conf['sources']:
+           tmp_conf['sources'] = tmp_conf['sources'].split()
+           tmp_conf['sources'] = [x.strip() for x in tmp_conf['sources']]
+       else:
+           print 'Defaulting to', os.environ['HOME']
+           tmp_conf['sources'] = [os.environ['HOME']]
+
+       tmp_conf['sources'] = [dir for dir in tmp_conf['sources'] if
+os.path.isdir(dir)]
+       print 'Valid directories:', tmp_conf['sources']
+       if query_yes_no("Is that ok ?", default='yes') == 'yes':
+           break
+
+   while True:
+       tmp_conf['workdir'] = raw_input("Enter work directory, enter
+to default: ")
+       if tmp_conf['workdir']:
+           if not os.path.isdir(tmp_conf['workdir']):
+               print 'Invalid directory', tmp_conf['workdir']
+               continue
+       else:
+           tmp_conf['workdir'] = '/tmp'
+       break
+
+   tmp_conf['mails'] = raw_input("Enter a list of e-mails to be
+notified every time we burn a media, enter for none: ")
+   tmp_conf['mails'] = tmp_conf['mails'].split()
+
+   # Write config
+   f = open(ab_conf_file, 'w')
+   pickle.dump(tmp_conf, f)
+   f.close()
+
+if __name__ == "__main__":
+   main()
