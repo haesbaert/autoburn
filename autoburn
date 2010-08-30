@@ -15,71 +15,17 @@
 # $HOME/.autoburn/
 
 from optparse import OptionParser
+import ConfigParser
 import os
-import pickle
 import pprint
 import sys
 
 ab_root      = os.environ['HOME'] + '/.autoburn/'
 ab_conf_file = ab_root + 'conf'
-ab_options   = None
+config = None
 
-def main():
-   # TODO: Check for binaries
-   
-   fconf = dict()
-
-   if not os.path.exists(ab_conf_file):
-       ask_conf()
-   f = open(ab_conf_file, 'rb')
-   fconf = pickle.load(f)
-   f.close()
-
-   pprint.pprint(fconf)
-   parser = OptionParser()
-   parser.add_option('-d', '--device',
-                     dest    = 'device',
-                     action  = 'store',
-                     default = fconf['device'],
-                     help    = 'Device to be used (/dev/sdX)')
-   parser.add_option('-i', '--interactive',
-                     dest    = 'interactive',
-                     action  = 'store_false',
-                     default = False,
-                     help    = 'Interactive mode')
-   parser.add_option('-m', '--mail',
-                     dest = 'mails',
-                     action = 'append',
-                     default = [],
-                     help = 'Mail address to be notified')
-   parser.add_option('-s', '--source',
-                     dest = 'sources',
-                     action = 'append',
-                     default = [],
-                     help = 'Source directories to look for data')
-   parser.add_option('-v', '--verbose',
-                     dest    = 'verbose',
-                     action  = 'count',
-                     default = 1,
-                     help    = 'Device to be used (/dev/sdX)')
-   parser.add_option('-w', '--workdir',
-                     dest = 'workdir',
-                     action = 'store',
-                     default = fconf['workdir'],
-                     help = 'Source directory for temporary files')
-
-   (ab_options, args) = parser.parse_args()
-
-   # Overwrite values
-   if not ab_options.mails:
-      ab_options.mails = fconf['mails']
-   if not ab_options.sources:
-      ab_options.sources = fconf['sources']
-      
-   pprint.pprint(fconf)
-
-   print 'options'
-   pprint.pprint(ab_options)
+class ConfigError(Exception):
+   pass
 
 def query_yes_no(question, default="yes"):
    valid = {"yes":"yes",   "y":"yes",  "ye":"yes",
@@ -104,54 +50,76 @@ def query_yes_no(question, default="yes"):
            sys.stdout.write("Please respond with 'yes' or 'no' "\
                                 "(or 'y' or 'n').\n")
 
-def ask_conf():
-   tmp_conf = dict()
-   if not os.path.exists(ab_root):
-       os.makedirs(ab_root)
-       tmp_conf['device'] = raw_input("Enter default burning device, " \
-                                         "(enter for probe): ")
-   if not tmp_conf['device']:
-       print "Probing for burning devices..."
-       # TODO probe
+def doconf():
+   # TODO: Check for binaries
+   
+   if not os.path.exists(ab_conf_file):
+      raise ConfigError("No config file at %s" % ab_conf_file)
+      sys.exit(1)
+       
+   config = ConfigParser.ConfigParser()
+   config.read(ab_conf_file)
 
-   while True:
-       tmp_conf['sources'] = []
-       tmp_conf['sources'] = raw_input("Enter data directories, default to " \
-                                          + os.environ['HOME'] + ": ")
+   parser = OptionParser()
+   parser.add_option('-d', '--device',
+                     dest    = 'device',
+                     action  = 'store',
+                     default = config.get('main', 'device'),
+                     help    = 'Device to be used (/dev/sdX)')
+   parser.add_option('-i', '--interactive',
+                     dest    = 'interactive',
+                     action  = 'store_false',
+                     default = False,
+                     help    = 'Interactive mode')
+   parser.add_option('-m', '--mail',
+                     dest = 'mails',
+                     action = 'append',
+                     default = [],
+                     help = 'Mail address to be notified')
+   parser.add_option('-s', '--source',
+                     dest = 'sources',
+                     action = 'append',
+                     default = [],
+                     help = 'Source directories to look for data')
+   parser.add_option('-v', '--verbose',
+                     dest    = 'verbose',
+                     action  = 'count',
+                     default = 1,
+                     help    = 'Device to be used (/dev/sdX)')
+   parser.add_option('-w', '--workdir',
+                     dest = 'workdir',
+                     action = 'store',
+                     default = None,
+                     help = 'Source directory for temporary files')
 
-       if tmp_conf['sources']:
-           tmp_conf['sources'] = tmp_conf['sources'].split()
-           tmp_conf['sources'] = [x.strip() for x in tmp_conf['sources']]
-       else:
-           print 'Defaulting to', os.environ['HOME']
-           tmp_conf['sources'] = [os.environ['HOME']]
+   (options, args) = parser.parse_args()
+   
+   # Overwrite values
+   if options.mails:
+      config.set('main', 'mails', options.mails)
+   if options.sources:
+      config.set('main', 'sources', options.sources)
+      
+   # Main sanity check
+   missing = [x for x in ['device', 'mail', 'workdir', 'sources', 'db'] \
+                 if not config.get('main', x)]
+   if missing:
+      raise ConfigError("Missing config files in main section, %s" \
+                           % str(missing))
+      sys.exit(1)
+      
+   # Limits sanity check
+   missing = [x for x in ['min_dvd_ratio', 'max_dvd_ratio', \
+                             'min_fsize', 'dvd_size'] \
+                 if not config.get('limits', x)]
+   if missing:
+      raise ConfigError("Missing config files in limits section, %s" \
+                           % str(missing))
+      sys.exit(1)
 
-       tmp_conf['sources'] = [dir for dir in tmp_conf['sources'] \
-                                 if os.path.isdir(dir)]
-       print 'Valid directories:', tmp_conf['sources']
-       if query_yes_no("Is that ok ?", default='yes') == 'yes':
-           break
 
-   while True:
-       tmp_conf['workdir'] = raw_input("Enter work directory, default to " \
-                                          + os.environ['HOME'] + ": ")
-       if tmp_conf['workdir']:
-           if not os.path.isdir(tmp_conf['workdir']):
-               sys.stderr.out('Invalid directory ' + tmp_conf['workdir'])
-               continue
-       else:
-           tmp_conf['workdir'] = '/tmp'
-       break
-
-   tmp_conf['mails'] = raw_input("Enter a list of e-mails to be" \
-                                    " notified every time we burn a media, " \
-                                    "enter for none: ")
-   tmp_conf['mails'] = tmp_conf['mails'].split()
-
-   # Write config
-   f = open(ab_conf_file, 'w')
-   pickle.dump(tmp_conf, f)
-   f.close()
-
+def main():
+   doconf()
+   
 if __name__ == "__main__":
    main()
