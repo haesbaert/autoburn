@@ -15,6 +15,7 @@
 # $HOME/.autoburn/
 
 from optparse import OptionParser
+import logging
 import ConfigParser
 import os
 import pprint
@@ -22,7 +23,7 @@ import sys
 
 ab_root      = os.environ['HOME'] + '/.autoburn/'
 ab_conf_file = ab_root + 'conf'
-config = None
+config       = None
 
 class ConfigError(Exception):
    pass
@@ -94,6 +95,9 @@ def doconf():
 
    (options, args) = parser.parse_args()
    
+   if args:
+      raise ConfigError("Superfluous argument \'%s\'" % args[0])
+   
    # Overwrite values
    if options.mails:
       config.set('main', 'mails', options.mails)
@@ -117,6 +121,13 @@ def doconf():
                            % str(missing))
       sys.exit(1)
 
+   # Verbosity
+   if options.verbose == 1:
+      logging.basicConfig(level = logging.WARNING)
+   elif options.verbose == 2:
+      logging.basicConfig(level = logging.INFO)
+   else:
+      logging.basicConfig(level = logging.DEBUG)
 
 def main():
    doconf()
