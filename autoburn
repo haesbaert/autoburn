@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # -d device
 # default: probe
 # -s source (multiplos)
@@ -22,6 +24,8 @@ ab_conf_file = ab_root + 'conf'
 ab_options   = None
 
 def main():
+   # TODO: Check for binaries
+   
    fconf = dict()
 
    if not os.path.exists(ab_conf_file):
@@ -51,23 +55,20 @@ def main():
                      dest = 'workdir',
                      action = 'store',
                      default = fconf['workdir'],
-                     help = 'Source directory to temporary files')
+                     help = 'Source directory for temporary files')
 
-   (options, args) = parser.parse_args()
+   (ab_options, args) = parser.parse_args()
 
    # Overwrite values
-   options.workdir = '1234'
-#     fconf['device']  = options.device
-#     if options.mails:
-#         fconf['mails'] = options.mails
-#     if options.sources:
-#         fconf['sources'] = options.sources
-#     fconf['workdir'] = options.workdir
-
+   if not ab_options.mails:
+      ab_options.mails = fconf['mails']
+   if not ab_options.sources:
+      ab_options.sources = fconf['sources']
+      
    pprint.pprint(fconf)
 
    print 'options'
-   pprint.pprint(options)
+   pprint.pprint(ab_options)
 
 def query_yes_no(question, default="yes"):
    valid = {"yes":"yes",   "y":"yes",  "ye":"yes",
@@ -96,17 +97,16 @@ def ask_conf():
    tmp_conf = dict()
    if not os.path.exists(ab_root):
        os.makedirs(ab_root)
-
-   tmp_conf['device'] = raw_input("Enter default burning device,
-(enter for probe): ")
+       tmp_conf['device'] = raw_input("Enter default burning device, " \
+                                         "(enter for probe): ")
    if not tmp_conf['device']:
        print "Probing for burning devices..."
        # TODO probe
 
    while True:
        tmp_conf['sources'] = []
-       tmp_conf['sources'] = raw_input("Enter data directories, enter
-to default: ")
+       tmp_conf['sources'] = raw_input("Enter data directories, default to " \
+                                          + os.environ['HOME'] + ": ")
 
        if tmp_conf['sources']:
            tmp_conf['sources'] = tmp_conf['sources'].split()
@@ -115,15 +115,15 @@ to default: ")
            print 'Defaulting to', os.environ['HOME']
            tmp_conf['sources'] = [os.environ['HOME']]
 
-       tmp_conf['sources'] = [dir for dir in tmp_conf['sources'] if
-os.path.isdir(dir)]
+       tmp_conf['sources'] = [dir for dir in tmp_conf['sources'] \
+                                 if os.path.isdir(dir)]
        print 'Valid directories:', tmp_conf['sources']
        if query_yes_no("Is that ok ?", default='yes') == 'yes':
            break
 
    while True:
-       tmp_conf['workdir'] = raw_input("Enter work directory, enter
-to default: ")
+       tmp_conf['workdir'] = raw_input("Enter work directory, default to " \
+                                          + os.environ['HOME'])
        if tmp_conf['workdir']:
            if not os.path.isdir(tmp_conf['workdir']):
                print 'Invalid directory', tmp_conf['workdir']
@@ -132,8 +132,9 @@ to default: ")
            tmp_conf['workdir'] = '/tmp'
        break
 
-   tmp_conf['mails'] = raw_input("Enter a list of e-mails to be
-notified every time we burn a media, enter for none: ")
+   tmp_conf['mails'] = raw_input("Enter a list of e-mails to be" \
+                                    " notified every time we burn a media, " \
+                                    "enter for none: ")
    tmp_conf['mails'] = tmp_conf['mails'].split()
 
    # Write config
