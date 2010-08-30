@@ -137,7 +137,7 @@ def ask_conf():
                                           + os.environ['HOME'] + ": ")
        if tmp_conf['workdir']:
            if not os.path.isdir(tmp_conf['workdir']):
-               print 'Invalid directory', tmp_conf['workdir']
+               sys.stderr.out('Invalid directory ' + tmp_conf['workdir'])
                continue
        else:
            tmp_conf['workdir'] = '/tmp'
