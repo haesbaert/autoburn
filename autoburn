@@ -22,7 +22,7 @@ import pprint
 import sys
 
 ab_root      = os.path.join(os.environ['HOME'], '.autoburn/')
-ab_conf_file = ab_root + 'conf'
+ab_conf_file = os.path.join(ab_root, 'conf')
 config       = None
 
 def walkdsize(dir):
