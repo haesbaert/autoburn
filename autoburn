@@ -48,13 +48,22 @@ class DvdEntry():
         else:
             self.isdir = False
             self.size  = os.path.getsize(self.path)
-         
+        # check if we're good
+        max_entry = int(config.getfloat('limits', 'max_dvd_ratio') \
+            * config.getint('limits', 'dvd_size'))
+        if self.size > max_entry:
+            self.good = False
+        elif self.size < config.getint('limits', 'min_fsize'):
+            self.good = False
+        else:
+            self.good = True
+
     def __cmp__(self, other):
         return cmp(self.size, other.size)
    
     def __str__(self):
         return "DvdEntry: {0} size: {1}".format(self.path, self.size)
-      
+    
 def query_yes_no(question, default="yes"):
     valid = {"yes":"yes",   "y":"yes",  "ye":"yes",
              "no":"no",     "n":"no"}
@@ -168,14 +177,25 @@ def main():
        raise 'I can\'t find growisofs, check if you have it in PATH'
    doconf()
    
-   entries = []
+   good = []
+   bad  = []
    
    logging.debug('Considering sources {0}'. \
                      format(config.get('main', 'sources')))
    for src in config.get('main', 'sources'):
        for e in os.listdir(src):
-           logging.debug('Computing sub-source {0}'.format(e))
-           entries.append(DvdEntry(os.path.join(src, e)))
+           d = DvdEntry(os.path.join(src, e))
+           if d.good:
+               good.append(d)
+           else:
+               bad.append(d)
+   
+   logging.info("== Filtered out entries == ")
+   for d in bad:
+       logging.info(d)
+   logging.debug("== In entries (good) == ")
+   for d in good:
+       logging.debug(d)
    
 if __name__ == "__main__":
     main()
