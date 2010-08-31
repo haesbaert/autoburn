@@ -21,13 +21,40 @@ import os
 import pprint
 import sys
 
-ab_root      = os.environ['HOME'] + '/.autoburn/'
+ab_root      = os.path.join(os.environ['HOME'], '.autoburn/')
 ab_conf_file = ab_root + 'conf'
 config       = None
+
+def walkdsize(dir):
+    tsum = 0
+    for root, dirs, files in os.walk(dir):
+       for name in files:
+          try:
+             tsum += os.path.getsize(os.path.join(root, name))
+          except OSError:
+             logging.warning("Can't access %s, skipping" \
+                                % os.path.join(root, name))
+    return tsum
 
 class ConfigError(Exception):
    pass
 
+class DvdEntry():
+   def __init__(self, path):
+      self.path = path
+      if os.path.isdir(self.path):
+         self.isdir = True
+         self.size  = walkdsize(self.path)
+      else:
+         self.isdir = False
+         self.size  = os.path.getsize(self.path)
+         
+   def __cmp__(self, other):
+      return cmp(self.size, other.size)
+   
+   def __str__(self):
+      return "DvdEntry: {0} size: {1}".format(self.path, self.size)
+      
 def query_yes_no(question, default="yes"):
    valid = {"yes":"yes",   "y":"yes",  "ye":"yes",
             "no":"no",     "n":"no"}
@@ -52,13 +79,13 @@ def query_yes_no(question, default="yes"):
                                 "(or 'y' or 'n').\n")
 
 def checkbin(biname):
-   if filter(lambda x: os.path.exists(x + '/' + biname),
+   if filter(lambda x: os.path.exists(os.path.join(x, biname)),
              os.environ['PATH'].split(':')):
       return True
    return False
            
 def doconf():
-   # TODO: Check for binaries
+   global config
    
    if not os.path.exists(ab_conf_file):
       raise ConfigError("No config file at %s" % ab_conf_file)
@@ -66,6 +93,12 @@ def doconf():
        
    config = ConfigParser.ConfigParser()
    config.read(ab_conf_file)
+   
+   # Turn string into lists where appropriate
+   for y in ['sources', 'mails']:
+      l = config.get('main', y).split(',')
+      l = map(lambda x: x.strip(), l)
+      config.set('main', y, l)
 
    parser = OptionParser()
    parser.add_option('-d', '--device',
@@ -92,7 +125,7 @@ def doconf():
                      dest    = 'verbose',
                      action  = 'count',
                      default = 1,
-                     help    = 'Device to be used (/dev/sdX)')
+                     help    = 'Verbosity level')
    parser.add_option('-w', '--workdir',
                      dest = 'workdir',
                      action = 'store',
@@ -109,9 +142,9 @@ def doconf():
       config.set('main', 'mails', options.mails)
    if options.sources:
       config.set('main', 'sources', options.sources)
-      
+
    # Main sanity check
-   missing = [x for x in ['device', 'mail', 'workdir', 'sources', 'db'] \
+   missing = [x for x in ['device', 'mails', 'workdir', 'sources', 'db'] \
                  if not config.get('main', x)]
    if missing:
       raise ConfigError("Missing config files in main section, %s" \
@@ -137,8 +170,17 @@ def doconf():
 
 def main():
    if not checkbin('growisofs'):
-      raise ConfigError('I can\'t find growisofs, check if you have it in PATH')
+      raise 'I can\'t find growisofs, check if you have it in PATH'
    doconf()
+   
+   entries = []
+   
+   logging.debug('Considering sources {0}'. \
+                    format(config.get('main', 'sources')))
+   for src in config.get('main', 'sources'):
+      for e in os.listdir(src):
+         logging.debug('Computing sub-source {0}'.format(e))
+         entries.append(DvdEntry(os.path.join(src, e)))
    
 if __name__ == "__main__":
    main()
