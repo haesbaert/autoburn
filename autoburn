@@ -15,6 +15,8 @@
 # $HOME/.autoburn/
 
 from optparse import OptionParser
+from datetime import datetime
+from collections import deque
 import logging
 import ConfigParser
 import os
@@ -49,20 +51,65 @@ class DvdEntry():
             self.isdir = False
             self.size  = os.path.getsize(self.path)
         # check if we're good
-        max_entry = int(config.getfloat('limits', 'max_dvd_ratio') \
-            * config.getint('limits', 'dvd_size'))
-        if self.size > max_entry:
+        if self.size > Dvd.max_size():
             self.good = False
         elif self.size < config.getint('limits', 'min_fsize'):
             self.good = False
         else:
             self.good = True
-
+            
     def __cmp__(self, other):
         return cmp(self.size, other.size)
    
     def __str__(self):
         return "DvdEntry: {0} size: {1}".format(self.path, self.size)
+
+class Dvd():
+    def __init__(self):
+        self.entries = deque()
+        self.size = 0
+        self.date = datetime.now().strftime("%d-%m-%y %H:%M")
+
+    def __str__(self):
+        s = '->DVD {0} {1} ({2}%)<-\n'.format(self.date, self.size, \
+                                                  self.ratio())
+        for e in self.entries:
+            s += str(e) + '\n'
+            
+        s += '-----------------------'
+        return s
+
+    def __cmp__(self, other):
+        return cmp(self.size, other.size)
+    
+    def __iter__(self):
+        return iter(self.entries)
+    
+    def put(self, e):
+        if (self.size + e.size) > self.max_size():
+            return False
+        
+        self.entries.append(e)
+        self.size += e.size
+        return True
+
+    def ratio(self):
+        return int((self.size * 100) / \
+            config.getfloat('limits', 'dvd_size'))
+
+    @staticmethod
+    def max_size():
+        return int(config.getfloat('limits', 'max_dvd_ratio') \
+                       * config.getint('limits', 'dvd_size'))
+
+    def nice_str(self):
+        s = '->DVD {0} {1} ({2}%)<-\n'.format(self.date, self.size, \
+                                                  self.ratio())
+        for e in self.entries:
+            s += os.path.basename(e.path) + '\n'
+            
+        s += '-----------------------------------------'
+        return s
     
 def query_yes_no(question, default="yes"):
     valid = {"yes":"yes",   "y":"yes",  "ye":"yes",
@@ -177,8 +224,9 @@ def main():
        raise 'I can\'t find growisofs, check if you have it in PATH'
    doconf()
    
-   good = []
-   bad  = []
+   good    = []
+   bad     = []
+   dvdlist = []
    
    logging.debug('Considering sources {0}'. \
                      format(config.get('main', 'sources')))
@@ -189,13 +237,36 @@ def main():
                good.append(d)
            else:
                bad.append(d)
-   
+               
+   #good = good.sort()
+   #good = good.reverse()
+
+   #print good
    logging.info("== Filtered out entries == ")
    for d in bad:
        logging.info(d)
+       
    logging.debug("== In entries (good) == ")
    for d in good:
        logging.debug(d)
+
+   dvd = Dvd()
+
+   while good:
+       e = good.pop()
+       if dvd.put(e):
+           continue
+       # Won't fit anymore, get a new dvd
+       dvdlist.append(dvd)
+       if not good:
+           break
+       dvd = Dvd()
+       
+   dvdlist.sort()
+   dvdlist.reverse()
    
+   for d in dvdlist:
+       print d.nice_str()
+       
 if __name__ == "__main__":
     main()
