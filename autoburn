@@ -17,6 +17,7 @@
 from optparse import OptionParser
 from datetime import datetime
 from collections import deque
+import pipes
 import logging
 import ConfigParser
 import os
@@ -97,6 +98,24 @@ class Dvd():
         return int((self.size * 100) / \
             config.getfloat('limits', 'dvd_size'))
 
+    def makeiso(self):
+        if not config.has_option('main', 'isoname'):
+            raise ConfigError("Missing isoname opttion")
+        
+        isopath = os.path.join(config.get('main', 'workdir'),
+                               config.get('main', 'isoname'))
+        paths = ''
+        for e in self.entries:
+            paths += pipes.quote(e.path) + ' '
+        
+        cmdstr = 'mkisofs -o {0} -R -J -graft-points -A teste -V teste {1}'. \
+            format(isopath, paths)
+    
+        logging.debug('mkisofs string: ' + cmdstr)
+
+        if os.system(cmdstr) != 0:
+            raise RuntimeError("mkisofs returned error")
+        
     @staticmethod
     def max_size():
         return int(config.getfloat('limits', 'max_dvd_ratio') \
@@ -146,6 +165,11 @@ def doconf():
         l = map(lambda x: x.strip(), l)
         config.set('main', y, l)
     parser = OptionParser()
+    parser.add_option('-b', '--dont-burn',
+                      dest    = 'dontburn',
+                      action  = 'store_true',
+                      default = False,
+                      help    = 'Don\'t burn a media')
     parser.add_option('-d', '--device',
                       dest    = 'device',
                       action  = 'store',
@@ -156,6 +180,11 @@ def doconf():
                       action  = 'store_false',
                       default = False,
                       help    = 'Interactive mode')
+    parser.add_option('-o', '--iso-image',
+                      dest    = 'isoname',
+                      action  = 'store',
+                      default = None,
+                      help    = 'Output an iso image with given name')
     parser.add_option('-m', '--mail',
                       dest = 'mails',
                       action = 'append',
@@ -187,12 +216,18 @@ def doconf():
         config.set('main', 'mails', options.mails)
     if options.sources:
         config.set('main', 'sources', options.sources)
-
+    if options.isoname:
+        config.set('main', 'isoname', options.isoname)
+    if options.dontburn:
+        config.set('main', 'dontburn', 'true')
+    if options.workdir:
+        config.set('main', 'workdir', options.workdir)
+    
     # Main sanity check
     missing = [x for x in ['device', 'mails', 'workdir', 'sources', 'db'] \
                    if not config.get('main', x)]
     if missing:
-        raise ConfigError("Missing config files in main section, %s" \
+        raise ConfigError("Missing config options in main section, %s" \
                               % str(missing))
       
     # Limits sanity check
@@ -200,7 +235,7 @@ def doconf():
                                'min_fsize', 'dvd_size'] \
                    if not config.get('limits', x)]
     if missing:
-        raise ConfigError("Missing config files in limits section, %s" \
+        raise ConfigError("Missing config options in limits section, %s" \
                              % str(missing))
 
     # Verbosity
@@ -210,7 +245,7 @@ def doconf():
         logging.basicConfig(level = logging.INFO)
     else:
         logging.basicConfig(level = logging.DEBUG)
-
+    
 def main():
    if not checkbin('growisofs'):
        raise 'I can\'t find growisofs, check if you have it in PATH'
@@ -230,10 +265,6 @@ def main():
            else:
                bad.append(d)
                
-   #good = good.sort()
-   #good = good.reverse()
-
-   #print good
    logging.info("== Filtered out entries == ")
    for d in bad:
        logging.info(d)
@@ -259,6 +290,23 @@ def main():
    
    for d in dvdlist:
        print d
+       
+   if not dvdlist:
+       sys.stdout.write("Could not assemble a single DVD")
+       sys.exit(1)
+   
+   d = dvdlist.pop(0)
+   
+   if config.has_option('main', 'isoname'):
+       d.makeiso()
+
+   if config.has_option('main', 'dontburn'):
+       logging.debug('Will not burn dvd')
+   else:
+       logging.debug('Will burn dvd')
+       d.burn()
+
+   sys.exit(0)
        
 if __name__ == "__main__":
     main()
