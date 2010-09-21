@@ -74,9 +74,9 @@ class Dvd():
         s = '->DVD {0} {1} ({2}%)<-\n'.format(self.date, self.size, \
                                                   self.ratio())
         for e in self.entries:
-            s += str(e) + '\n'
+            s += os.path.basename(e.path) + '\n'
             
-        s += '-----------------------'
+        s += '-----------------------------------------'
         return s
 
     def __cmp__(self, other):
@@ -102,14 +102,6 @@ class Dvd():
         return int(config.getfloat('limits', 'max_dvd_ratio') \
                        * config.getint('limits', 'dvd_size'))
 
-    def nice_str(self):
-        s = '->DVD {0} {1} ({2}%)<-\n'.format(self.date, self.size, \
-                                                  self.ratio())
-        for e in self.entries:
-            s += os.path.basename(e.path) + '\n'
-            
-        s += '-----------------------------------------'
-        return s
     
 def query_yes_no(question, default="yes"):
     valid = {"yes":"yes",   "y":"yes",  "ye":"yes",
@@ -266,7 +258,7 @@ def main():
    dvdlist.reverse()
    
    for d in dvdlist:
-       print d.nice_str()
+       print d
        
 if __name__ == "__main__":
     main()
