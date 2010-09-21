@@ -108,13 +108,22 @@ class Dvd():
         for e in self.entries:
             paths += pipes.quote(e.path) + ' '
         
-        cmdstr = 'mkisofs -o {0} -R -J -graft-points -A teste -V teste {1}'. \
+        cmdstr = 'mkisofs -o {0} -R -J -r -graft-points -A teste -V teste {1}'. \
             format(isopath, paths)
     
         logging.debug('mkisofs string: ' + cmdstr)
 
         if os.system(cmdstr) != 0:
             raise RuntimeError("mkisofs returned error")
+        
+    def burn(self):
+        paths = ''
+        for e in self.entries:
+            paths += pipes.quote(e.path) + ' '
+            
+        cmdstr = 'growisofs -dvd-compat -Z {0} -V {1} -R -J -r -graft-points {2}'. \
+            format(config.get('main', 'device'), pipes.quote(self.date), paths)
+        logging.debug('burnstring = ' + cmdstr)
         
     @staticmethod
     def max_size():
@@ -265,7 +274,7 @@ def main():
            else:
                bad.append(d)
                
-   logging.info("== Filtered out entries == ")
+   logging.info("== Filtered out entries (bad) == ")
    for d in bad:
        logging.info(d)
        
