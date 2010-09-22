@@ -11,7 +11,6 @@
 # falso
 # -r Don't record
 # falso
-# -w workdir
 # $HOME/.autoburn/
 
 from optparse import OptionParser
@@ -26,6 +25,7 @@ import sys
 
 ab_root      = os.path.join(os.environ['HOME'], '.autoburn/')
 ab_conf_file = os.path.join(ab_root, 'conf')
+ab_db_file   = os.path.join(ab_root, 'dvd_db.sql')
 config       = None
 
 def walkdsize(dir):
@@ -102,8 +102,7 @@ class Dvd():
         if not config.has_option('main', 'isoname'):
             raise ConfigError("Missing isoname opttion")
         
-        isopath = os.path.join(config.get('main', 'workdir'),
-                               config.get('main', 'isoname'))
+        isopath = config.get('main', 'isoname')
         paths = ''
         for e in self.entries:
             paths += pipes.quote(e.path) + ' '
@@ -209,11 +208,6 @@ def doconf():
                       action  = 'count',
                       default = 1,
                       help    = 'Verbosity level')
-    parser.add_option('-w', '--workdir',
-                      dest = 'workdir',
-                      action = 'store',
-                      default = None,
-                      help = 'Source directory for temporary files')
 
     (options, args) = parser.parse_args()
    
@@ -229,11 +223,9 @@ def doconf():
         config.set('main', 'isoname', options.isoname)
     if options.dontburn:
         config.set('main', 'dontburn', 'true')
-    if options.workdir:
-        config.set('main', 'workdir', options.workdir)
     
     # Main sanity check
-    missing = [x for x in ['device', 'mails', 'workdir', 'sources', 'db'] \
+    missing = [x for x in ['device', 'mails', 'sources', 'db'] \
                    if not config.get('main', x)]
     if missing:
         raise ConfigError("Missing config options in main section, %s" \
@@ -258,6 +250,10 @@ def doconf():
 def main():
    if not checkbin('growisofs'):
        raise 'I can\'t find growisofs, check if you have it in PATH'
+   if not checkbin('mkisofs'):
+       raise 'I can\'t find mkisofs, check if you have it in PATH'
+   
+   check_conf()
    doconf()
    
    good    = []
@@ -316,6 +312,31 @@ def main():
        d.burn()
 
    sys.exit(0)
-       
+
+def check_conf():
+    if os.path.exists(ab_conf_file):
+        return
+    
+    if not os.path.exists(ab_root):
+        os.mkdir(ab_root)
+
+    logging.warning('I can see this is the first time you are running me, created \
+config file in {0}, tune the file for your needs'.format(ab_conf_file))
+
+    cf = ConfigParser.ConfigParser()
+    cf.add_section('main')
+    cf.add_section('limits')
+    cf.set('main', 'device', '/dev/rcd0c')
+    cf.set('main', 'mails', 'foo@bar.com')
+    cf.set('main', 'sources', os.environ['HOME'])
+    cf.set('main', 'db', ab_db_file)
+    cf.set('limits', 'min_dvd_ratio', 0.90)
+    cf.set('limits', 'max_dvd_ratio', 0.96)
+    cf.set('limits', 'min_fsize', 10000000)
+    cf.set('limits', 'dvd_size', 4700000000)
+    f = open(ab_conf_file, 'w')
+    cf.write(f)
+    f.close()
+    
 if __name__ == "__main__":
     main()
