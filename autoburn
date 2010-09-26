@@ -85,6 +85,14 @@ class Dvd():
         return int((self.size * 100) / \
             config.getfloat('limits', 'dvd_size'))
 
+    def moveburned(self):
+        for e in self.entries:
+            oldname = pipes.quote(e.path)
+            newname = pipes.quote(e.path + '.burned')
+            cmdstr = 'mv -f {0} {1}'.format(oldname, newname)
+            logging.debug('moveburned string: ' + cmdstr)
+            os.system(cmdstr)
+
     def makeiso(self):
         if not config.has_option('main', 'isoname'):
             raise ConfigError("Missing isoname opttion")
@@ -185,6 +193,11 @@ def doconf():
                       action = 'append',
                       default = [],
                       help = 'Mail address to be notified')
+    parser.add_option('-M', '--dont-move',
+                      dest    = 'dontmove',
+                      action  = 'store_true',
+                      default = False,
+                      help    = 'Don\'t move entries to .burned')
     parser.add_option('-s', '--source',
                       dest = 'sources',
                       action = 'append',
@@ -210,6 +223,8 @@ def doconf():
         config.set('main', 'isoname', options.isoname)
     if options.dontburn:
         config.set('main', 'dontburn', 'true')
+    if options.dontmove:
+        config.set('main', 'dontmove', 'true')
     
     # Main sanity check
     missing = [x for x in ['device', 'mails', 'sources', 'db'] \
@@ -297,6 +312,13 @@ def main():
    else:
        logging.debug('Will burn dvd')
        d.burn()
+       
+   # Move files to .burned
+   if config.has_option('main', 'dontmove'):
+       logging.debug('Will not move files to .burned')
+   else:
+       logging.debug('Will move files to .burned')
+       d.moveburned()
 
    sys.exit(0)
 
