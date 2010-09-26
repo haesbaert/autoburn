@@ -32,6 +32,7 @@ class ConfigError(Exception):
 class DvdEntry():
     def __init__(self, path):
         self.path = path
+        self.ext = os.path.splitext(path)[1]
         if os.path.isdir(self.path):
             self.isdir = True
             self.size  = walkdsize(self.path)
@@ -42,6 +43,8 @@ class DvdEntry():
         if self.size > Dvd.max_size():
             self.good = False
         elif self.size < config.getint('limits', 'min_fsize'):
+            self.good = False
+        elif self.ext == '.burned':
             self.good = False
         else:
             self.good = True
