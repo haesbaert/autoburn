@@ -1,18 +1,5 @@
 #!/usr/bin/env python
 
-
-# -d device
-# default: probe
-# -s source (multiplos)
-# default home
-# -m mail (multiplos)
-# nao mandar
-# -i iterativo?
-# falso
-# -r Don't record
-# falso
-# $HOME/.autoburn/
-
 from optparse import OptionParser
 from datetime import datetime
 from collections import deque
