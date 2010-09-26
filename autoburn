@@ -39,7 +39,7 @@ class DvdEntry():
         else:
             self.isdir = False
             self.size  = os.path.getsize(self.path)
-        # check if we're good
+        # Check if we're good, that is, check if we are a 'to burn' entry or not
         if self.size > Dvd.max_size():
             self.good = False
         elif self.size < config.getint('limits', 'min_fsize'):
@@ -228,6 +228,9 @@ def doconf():
         config.set('main', 'dontburn', 'true')
     if options.dontmove:
         config.set('main', 'dontmove', 'true')
+    if options.interactive:
+        config.set('main', 'interactive', 'true')
+
     
     # Main sanity check
     missing = [x for x in ['device', 'mails', 'sources', 'db'] \
