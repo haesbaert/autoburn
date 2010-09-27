@@ -134,7 +134,12 @@ class Dvd():
                 'insert into dvds (title, creation_date, size)' \
                     ' values (?, ?, ?)',
                 (self.date, self.date, self.size))
-#             c.execute('select last_insert_rowid() as id_last_dvd from dvds')
+            c.execute('select last_insert_rowid() as id_last_dvd from dvds')
+            last_id = None
+            for row in c:
+                last_id = row[0]
+            if not last_id:
+                raise RuntimeError('select statement for dvd failed.')
             for e in self.entries:
                 if e.isdir:
                     df = 'D'
@@ -142,8 +147,8 @@ class Dvd():
                     df = 'F'
                 c.execute(
                     'insert into dvd_contents (id_dvd, type, full_path, size)' \
-                        'values (last_insert_rowid(), ?, ?, ?)',
-                    (df, e.path, e.size))
+                        'values (?, ?, ?, ?)',
+                    (last_id, df, e.path, e.size))
             conn.commit()
             c.close()
             conn.close()
