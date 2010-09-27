@@ -246,14 +246,14 @@ def doconf():
     if missing:
         raise ConfigError("Missing config options in limits section, %s" \
                              % str(missing))
-
+    FORMAT="%(message)s"
     # Verbosity
     if options.verbose == 1:
-        logging.basicConfig(level = logging.WARNING)
+        logging.basicConfig(level = logging.WARNING, format = FORMAT)
     elif options.verbose == 2:
-        logging.basicConfig(level = logging.INFO)
+        logging.basicConfig(level = logging.INFO, format = FORMAT)
     else:
-        logging.basicConfig(level = logging.DEBUG)
+        logging.basicConfig(level = logging.DEBUG, format = FORMAT)
     
 def main():
    if not checkbin('growisofs'):
@@ -280,7 +280,7 @@ def main():
                
    logging.info("== Filtered out entries (bad) == ")
    for d in bad:
-       logging.info(d)
+       logging.debug(d)
        
    logging.debug("== In entries (good) == ")
    for d in good:
@@ -302,7 +302,7 @@ def main():
    dvdlist.reverse()
    
    for d in dvdlist:
-       print d
+       logging.info(d)
        
    if not dvdlist:
        sys.stdout.write("Could not assemble a single DVD")
