@@ -171,7 +171,7 @@ def doconf():
     config = ConfigParser.ConfigParser()
     config.read(ab_conf_file)
    
-    for y in ['sources', 'mails']:
+    for y in ['mails']:
         l = config.get('main', y).split(',')
         l = map(lambda x: x.strip(), l)
         config.set('main', y, l)
@@ -206,11 +206,6 @@ def doconf():
                       action  = 'store_true',
                       default = False,
                       help    = 'Don\'t move entries to .burned')
-    parser.add_option('-s', '--source',
-                      dest = 'sources',
-                      action = 'append',
-                      default = [],
-                      help = 'Source directories to look for data')
     parser.add_option('-v', '--verbose',
                       dest    = 'verbose',
                       action  = 'count',
@@ -219,14 +214,13 @@ def doconf():
 
     (options, args) = parser.parse_args()
    
-    if args:
-        raise ConfigError("Superfluous argument \'%s\'" % args[0])
+    if not args:
+        args = [os.getcwd()]
    
+    config.set('main', 'sources', args)
     # Overwrite values
     if options.mails:
         config.set('main', 'mails', options.mails)
-    if options.sources:
-        config.set('main', 'sources', options.sources)
     if options.isoname:
         config.set('main', 'isoname', options.isoname)
     if options.dontburn:
@@ -235,10 +229,14 @@ def doconf():
         config.set('main', 'dontmove', 'true')
     if options.interactive:
         config.set('main', 'interactive', 'true')
-
+    
+    # Sanity check on arguments
+    for d in config.get('main', 'sources'):
+        if not os.path.isdir(d):
+            sys.stderr.write('{0} is not a directory\n'.format(d))
     
     # Main sanity check
-    missing = [x for x in ['device', 'mails', 'sources', 'db'] \
+    missing = [x for x in ['device', 'mails', 'db'] \
                    if not config.get('main', x)]
     if missing:
         raise ConfigError("Missing config options in main section, %s" \
@@ -350,7 +348,6 @@ config file in {0}, tune the file for your needs'.format(ab_conf_file))
     cf.add_section('limits')
     cf.set('main', 'device', '/dev/dvdrom')
     cf.set('main', 'mails', 'foo@bar.com')
-    cf.set('main', 'sources', os.environ['HOME'])
     cf.set('main', 'db', ab_db_file)
     cf.set('limits', 'min_dvd_ratio', 0.90)
     cf.set('limits', 'max_dvd_ratio', 0.96)
