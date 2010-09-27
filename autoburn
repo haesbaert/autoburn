@@ -309,7 +309,6 @@ def main():
    logging.debug("== In entries (good) == ")
    for d in good:
        logging.debug(d)
-
    dvd = Dvd()
 
    while good:
@@ -321,21 +320,23 @@ def main():
        if not good:
            break
        dvd = Dvd()
-       
-   # Make sure we dont use the wrong variable
-   dvd = None
-   
    dvdlist.sort()
    dvdlist.reverse()
    
+   total_size = 0
+   total_files = 0
    for d in dvdlist:
+       total_size = total_size + dvd.size
+       total_files = total_files + len(d.entries)
        logging.info(d)
-       
+
    if not dvdlist:
        sys.stdout.write("Could not assemble a single DVD")
        sys.exit(1)
-   
+
    d = dvdlist.pop(0)
+   print 'Searched {0} bytes in {1} files/dirs '. \
+       format(total_size, total_files)
    print 'The following is the fullest DVD I can make:'
    print d
    if config.has_option('main', 'isoname'):
@@ -373,7 +374,7 @@ def check_conf():
     cf.set('main', 'mails', 'foo@bar.com')
     cf.set('main', 'db', ab_db_file)
     cf.set('limits', 'min_dvd_ratio', 0.90)
-    cf.set('limits', 'max_dvd_ratio', 0.96)
+    cf.set('limits', 'max_dvd_ratio', 0.985)
     cf.set('limits', 'min_fsize', 10000000)
     cf.set('limits', 'dvd_size', 4700000000)
     f = open(ab_conf_file, 'w')
