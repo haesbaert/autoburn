@@ -15,6 +15,10 @@ ab_conf_file = os.path.join(ab_root, 'conf')
 ab_db_file   = os.path.join(ab_root, 'dvd_db.sql')
 config       = None
 
+# This is just a shortcut
+def interactive():
+    return config.has_option('main', 'interactive')
+    
 def walkdsize(dir):
     tsum = 0
     for root, dirs, files in os.walk(dir):
@@ -62,12 +66,12 @@ class Dvd():
         self.date = datetime.now().strftime("%d-%m-%y %H:%M")
 
     def __str__(self):
-        s = '->DVD {0} {1} ({2}%)<-\n'.format(self.date, self.size, \
+        s = '-->DVD {0} {1} ({2}%)<--\n'.format(self.date, self.size, \
                                                   self.ratio())
         for e in self.entries:
             s += os.path.basename(e.path) + '\n'
             
-        s += '-----------------------------------------'
+        s += 80 * '-'
         return s
 
     def __cmp__(self, other):
@@ -246,7 +250,7 @@ def doconf():
     if missing:
         raise ConfigError("Missing config options in limits section, %s" \
                              % str(missing))
-    FORMAT="%(message)s"
+    FORMAT="%(levelname)s:%(message)s"
     # Verbosity
     if options.verbose == 1:
         logging.basicConfig(level = logging.WARNING, format = FORMAT)
@@ -310,6 +314,8 @@ def main():
    
    d = dvdlist.pop(0)
    
+   print 'The following is the most full DVD I can make:'
+   print dvd
    if config.has_option('main', 'isoname'):
        d.makeiso()
 
