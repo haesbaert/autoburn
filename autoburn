@@ -3,6 +3,7 @@
 from optparse import OptionParser
 from datetime import datetime
 from collections import deque
+import sqlite3
 import pipes
 import logging
 import ConfigParser
@@ -12,7 +13,7 @@ import sys
 
 ab_root      = os.path.join(os.environ['HOME'], '.autoburn/')
 ab_conf_file = os.path.join(ab_root, 'conf')
-ab_db_file   = os.path.join(ab_root, 'dvd_db.sql')
+ab_db_file   = os.path.join(ab_root, 'dvd_db.sqlite')
 config       = None
 
 # This is just a shortcut
