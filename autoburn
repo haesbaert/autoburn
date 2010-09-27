@@ -127,6 +127,27 @@ class Dvd():
             format(config.get('main', 'device'), pipes.quote(self.date), paths)
         logging.debug('burnstring = ' + cmdstr)
         
+    def dbsave(self):
+            conn = sqlite3.connect(ab_db_file)
+            c = conn.cursor()
+            c.execute(
+                'insert into dvds (title, creation_date, size)' \
+                    ' values (?, ?, ?)',
+                (self.date, self.date, self.size))
+#             c.execute('select last_insert_rowid() as id_last_dvd from dvds')
+            for e in self.entries:
+                if e.isdir:
+                    df = 'D'
+                else:
+                    df = 'F'
+                c.execute(
+                    'insert into dvd_contents (id_dvd, type, full_path, size)' \
+                        'values (last_insert_rowid(), ?, ?, ?)',
+                    (df, e.path, e.size))
+            conn.commit()
+            c.close()
+            conn.close()
+            
     @staticmethod
     def max_size():
         return int(config.getfloat('limits', 'max_dvd_ratio') \
@@ -301,6 +322,9 @@ def main():
            break
        dvd = Dvd()
        
+   # Make sure we dont use the wrong variable
+   dvd = None
+   
    dvdlist.sort()
    dvdlist.reverse()
    
@@ -312,9 +336,8 @@ def main():
        sys.exit(1)
    
    d = dvdlist.pop(0)
-   
    print 'The following is the fullest DVD I can make:'
-   print dvd
+   print d
    if config.has_option('main', 'isoname'):
        d.makeiso()
 
@@ -330,6 +353,9 @@ def main():
    else:
        logging.debug('Will move files to .burned')
        d.moveburned()
+       
+   # Save to database
+   d.dbsave()
 
    sys.exit(0)
 
@@ -339,9 +365,6 @@ def check_conf():
     
     if not os.path.exists(ab_root):
         os.mkdir(ab_root)
-
-    logging.warning('I can see this is the first time you are running me, created \
-config file in {0}, tune the file for your needs'.format(ab_conf_file))
 
     cf = ConfigParser.ConfigParser()
     cf.add_section('main')
@@ -356,6 +379,41 @@ config file in {0}, tune the file for your needs'.format(ab_conf_file))
     f = open(ab_conf_file, 'w')
     cf.write(f)
     f.close()
+    
+    # Init database
+    if not os.path.exists(ab_db_file):
+        db_create()
+
+    logging.warning('I can see this is the first time you are running me, I have \
+created the config file in {0} and the database in {1}, \
+tune the file for your needs'.format(ab_conf_file, ab_db_file))
+
+def db_create():
+    conn = sqlite3.connect(ab_db_file)
+    c = conn.cursor()
+    c.executescript("""
+-- DVDs Table
+   create table dvds (
+       id_dvd integer primary key asc autoincrement,
+       title text not null,
+       creation_date varchar(16) not null,   -- Timestamp: YYYYMMDDHHMMSS
+       size integer not null                 -- Size in KB
+   );
+
+
+-- DVD Contents Table
+   create table dvd_contents (
+       id_dvd_content integer primary key asc autoincrement,
+       id_dvd integer,
+       type varchar(1) not null,      -- 'D' for Directory or 'F' for File
+       full_path text not null,
+       size integer not null,         -- Size in KB
+       foreign key (id_dvd) references id_dvd (dvds)
+   );
+""")
+    conn.commit()
+    c.close()
+    conn.close()
     
 if __name__ == "__main__":
     main()
