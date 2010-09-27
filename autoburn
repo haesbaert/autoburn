@@ -314,7 +314,7 @@ def main():
    
    d = dvdlist.pop(0)
    
-   print 'The following is the most full DVD I can make:'
+   print 'The following is the fullest DVD I can make:'
    print dvd
    if config.has_option('main', 'isoname'):
        d.makeiso()
