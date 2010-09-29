@@ -396,9 +396,6 @@ the config file in {0} and the database in {1}.'.format(ab_conf_file, ab_db_file
     if query_yes_no('Is that ok ?') == 'no':
         sys.exit(0)
 
-    print 'Setup done, tune the config file to your needs'
-    time.sleep(2)
-    
     if not os.path.exists(ab_root):
         os.mkdir(ab_root)
 
@@ -419,9 +416,9 @@ the config file in {0} and the database in {1}.'.format(ab_conf_file, ab_db_file
     # Init database
     if not os.path.exists(ab_db_file):
         db_create()
-
-
-
+        
+    print 'Setup done, tune the config file to your needs'
+    sys.exit(0)
 
 def db_create():
     conn = sqlite3.connect(ab_db_file)
