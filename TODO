@@ -1,1 +1,7 @@
 * Don't use os.system, use pipes instead.
+* Fix the help messages on autocat.
+* Make autocat queries and code more similar to autoburn.
+* Use a better title for dvds, maybe the ID ?
+* Code them manpages.
+* Make a makefile just to copy files to a bin ?
+* Code mail support.

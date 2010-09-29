@@ -1,0 +1,245 @@
+#!/usr/bin/env python
+
+# Autoburn Catalog
+from optparse import OptionParser
+import sqlite3
+import sys
+import os
+
+# Carefull, these paths should be made equal with autoburn
+search       = {}
+db           = None
+ab_root      = os.path.join(os.environ['HOME'], '.autoburn/')
+ab_conf_file = os.path.join(ab_root, 'conf')
+ab_db_file   = os.path.join(ab_root, 'dvd_db.sqlite')
+config       = None
+
+def search_init():
+    global search
+    search['title']   = None
+    search['date']    = None
+    search['content'] = None
+    search['list']    = None
+
+def build_query():
+    global search
+
+    if search['list'] == None:
+        if search['title'] == None:
+            search['title'] = '%'
+        else:
+            search['title'] = '%' + search['title'] + '%'
+        if search['date'] == None:
+            search['date'] = '%'
+        else:
+            search['date'] = '%' + search['date'] + '%'
+            
+    
+        if search['content'] == None:
+            return 'select title \
+                          ,creation_date \
+                          ,size \
+                      from dvds \
+                     where upper(title)         like ? and \
+                           upper(creation_date) like ? \
+                  order by id_dvd '
+                     
+        else:
+            search['content'] = '%' + search['content'] + '%'
+            return 'select d.title         as dvd_title \
+                          ,d.creation_date as dvd_creation_date \
+                          ,d.size          as dvd_size \
+                          ,c.type          as content_type \
+                          ,c.full_path     as content_full_path \
+                          ,c.size          as content_size \
+                      from dvds d left join \
+                           dvd_contents c on d.id_dvd = c.id_dvd \
+                     where upper(d.title)         like ? and \
+                           upper(d.creation_date) like ? and \
+                           upper(c.full_path)     like ? \
+                  order by d.id_dvd, c.id_dvd_content '
+    else:
+        return 'select type          as content_type \
+                      ,full_path     as content_full_path \
+                      ,size          as content_size \
+                  from dvd_contents \
+                 where id_dvd like ? \
+              order by id_dvd_content '
+        
+
+def db_open():
+    global db
+    db = sqlite3.connect(ab_db_file)
+
+def db_close():
+    global db
+    db.close()
+    db = None
+
+def do_options():
+    global search
+
+    parser = OptionParser(usage='%prog [-i [command_line [[-t ...|-d ...|-c ...]|[-l ...]] | graphical]]', \
+                          epilog='* You can use the search criterias ([-t ...|-d ...|-c ...]) together. \n ' + \
+                                 '* If you use no search criteria the program will list all DVDs. \r ' + \
+                                 '* The option -l (--list) is not meant to be used with search criterias. \r ' + \
+                                 '* Arguments are not case sensitive.')
+    
+    parser.add_option('-t', '--title',
+                      dest    = 'title',
+                      action  = 'store',
+                      type    = 'string',
+                      default = None,
+                      help    = 'Search for DVDs\' titles containing TITLE.')
+    parser.add_option('-d', '--date',
+                      dest    = 'date',
+                      action  = 'store',
+                      type    = 'string',
+                      default = None,
+                      help    = 'Search for DVDs created on DATE. Timestamp is YYYYMMDD.')
+    parser.add_option('-c', '--content',
+                      dest    = 'content',
+                      action  = 'store',
+                      type    = 'string',
+                      default = None,
+                      help    = 'Search for DVDs\' contents containing CONTENT on its filename or path.')
+    parser.add_option('-l', '--list',
+                      dest    = 'list',
+                      action  = 'store',
+                      type    = 'string',
+                      default = None,
+                      help    = 'Print information about the DVD with title LIST and list its contents.')
+    
+    (options, args) = parser.parse_args()
+    
+    search['title']   = options.title
+    search['date']    = options.date
+    search['content'] = options.content
+    search['list']    = options.list
+    
+    if search['list'] is not None:
+        if search['title'] is not None or \
+                search['date'] is not None or \
+                search['content'] is not None:
+            print 'The option -l (--list) is not meant to be used with search criteria ([-t|-d|-c]).'
+            print 'See the help for information. Program is exiting.'
+            sys.exit()
+    
+    command_line()
+
+def command_line():
+    global db, search
+    
+    db_open()
+    
+    cursor = db.cursor()
+    matches = 0
+    if search['list'] == None:
+        if search['content'] == None:
+            cursor.execute(build_query(), (search['title'].upper(), search['date'].upper(), )  )
+            for dvd in cursor:
+                title = dvd[0]
+                date  = dvd[1]
+                size  = dvd[2]
+                
+                date  = date[6:8] + '-' + date[4:6] + '-' + date[0:4] + ' ' + date[8:10] + ':' + date[10:12] + ':' + date[12:14]
+                
+                print '@ Title: %s'         % title
+                print '  Creation Date: %s' % date
+                print '  Size: %sKB'        % size
+                matches = matches + 1
+        else:
+            cursor.execute( build_query() , (search['title'].upper(), search['date'].upper(), search['content'].upper(), ) )
+            for content in cursor:
+                dvd_title         = content[0]
+                dvd_creation_date = content[1]
+                dvd_size          = content[2]
+                content_type      = content[3]
+                content_full_path = content[4]
+                content_size      = content[5]
+                
+                dvd_creation_date = dvd_creation_date[6:8]  + '-' + dvd_creation_date[4:6]   + '-' + dvd_creation_date[0:4] + ' ' +  \
+                                    dvd_creation_date[8:10] + ':' + dvd_creation_date[10:12] + ':' + dvd_creation_date[12:14]
+                
+                if content_type == 'D':
+                    content_type = 'Directory'
+                    cursor_dir_size = db.cursor()
+                    cursor_dir_size.execute('select sum(size) as dir_size \
+                                               from dvd_contents \
+                                              where upper(full_path) like ? and \
+                                                    type like "F" ' , ((content_full_path + '%').upper(), ) )
+                    content_size = cursor_dir_size.fetchone()[0]
+                    if content_size == None:
+                        content_size = '0'
+                else:
+                    content_type = 'File'
+                
+                print '@ DVD Title: %s'         % dvd_title
+                print '  DVD Creation Date: %s' % dvd_creation_date
+                print '  DVD Size: %sKB'        % dvd_size
+                print '  Content Path: %s'      % content_full_path
+                print '  Content Type: %s'      % content_type
+                print '  Content Size: %sKB'    % content_size
+                matches = matches + 1
+    else:
+        cursor.execute('select id_dvd \
+                              ,title \
+                              ,creation_date \
+                              ,size \
+                         from dvds \
+                        where upper(title) like ? ', (search['list'].upper(), ) )
+        for dvd in cursor:
+            id_dvd = dvd[0]
+            title  = dvd[1]
+            date   = dvd[2]
+            size   = dvd[3]
+            
+            date   = date[6:8] + '-' + date[4:6] + '-' + date[0:4] + ' ' + date[8:10] + ':' + date[10:12] + ':' + date[12:14]
+            
+            print '@ Title: %s'         % title
+            print '  Creation Date: %s' % date
+            print '  Size: %sKB'        % size
+            print ''
+            
+            cursor_contents = db.cursor()
+            cursor_contents.execute( build_query() , (id_dvd, ) )
+            for content in cursor_contents:
+                content_type      = content[0]
+                content_full_path = content[1]
+                content_size      = content[2]
+                
+                if content_type == 'D':
+                    content_type = 'Directory'
+                    cursor_dir_size = db.cursor()
+                    cursor_dir_size.execute('select sum(size) as dir_size \
+                                               from dvd_contents \
+                                              where upper(full_path) like ? and \
+                                                    type like "F" ' , ((content_full_path + '%').upper(), ) )
+                    content_size = cursor_dir_size.fetchone()[0]
+                    if content_size == None:
+                        content_size = '0'
+                else:
+                    content_type = 'File'
+                
+                print '@ Content Path: %s'   % content_full_path
+                print '  Content Type: %s'   % content_type
+                print '  Content Size: %sKB' % content_size
+            
+            matches = matches + 1
+        
+        if matches > 1:
+            print ''
+            print '* There is more than one DVD with the title specified. All of them were listed.'
+        
+    if matches == 0:
+        print 'Nothing found.'
+    
+    db_close()
+
+def main():
+    search_init()
+    do_options()
+
+if __name__ == "__main__":
+    main()
+
