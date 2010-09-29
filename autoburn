@@ -127,6 +127,9 @@ class Dvd():
             format(config.get('main', 'device'), pipes.quote(self.date), paths)
         logging.debug('burnstring = ' + cmdstr)
         
+        if os.system(cmdstr) != 0:
+            raise RuntimeError("growisofs returned error")
+
     def dbsave(self):
             conn = sqlite3.connect(ab_db_file)
             c = conn.cursor()
@@ -135,9 +138,9 @@ class Dvd():
                     ' values (?, ?, ?)',
                 (self.date, self.date, self.size))
             c.execute('select last_insert_rowid() as id_last_dvd from dvds')
-            last_id = None
-            for row in c:
-                last_id = row[0]
+            last_id = c.next()[0]
+#             for row in c:
+#                 last_id = row[0]
             if not last_id:
                 raise RuntimeError('select statement for dvd failed.')
             for e in self.entries:
@@ -202,7 +205,7 @@ def doconf():
         l = map(lambda x: x.strip(), l)
         config.set('main', y, l)
     parser = OptionParser()
-    parser.add_option('-b', '--dont-burn',
+    parser.add_option('-B', '--dont-burn',
                       dest    = 'dontburn',
                       action  = 'store_true',
                       default = False,
@@ -214,7 +217,7 @@ def doconf():
                       help    = 'Device to be used (/dev/sdX)')
     parser.add_option('-i', '--interactive',
                       dest    = 'interactive',
-                      action  = 'store_false',
+                      action  = 'store_true',
                       default = False,
                       help    = 'Interactive mode')
     parser.add_option('-o', '--iso-image',
@@ -232,6 +235,11 @@ def doconf():
                       action  = 'store_true',
                       default = False,
                       help    = 'Don\'t move entries to .burned')
+    parser.add_option('-S', '--dont-save',
+                      dest    = 'dontsave',
+                      action  = 'store_true',
+                      default = False,
+                      help    = 'Don\'t save dvd in database')
     parser.add_option('-v', '--verbose',
                       dest    = 'verbose',
                       action  = 'count',
@@ -253,6 +261,8 @@ def doconf():
         config.set('main', 'dontburn', 'true')
     if options.dontmove:
         config.set('main', 'dontmove', 'true')
+    if options.dontsave:
+        config.set('main', 'dontsave', 'true')
     if options.interactive:
         config.set('main', 'interactive', 'true')
     
@@ -336,7 +346,7 @@ def main():
        logging.info(d)
 
    if not dvdlist:
-       sys.stdout.write("Could not assemble a single DVD")
+       print 'Could not assemble a single DVD'
        sys.exit(1)
 
    d = dvdlist.pop(0)
@@ -345,23 +355,37 @@ def main():
    print 'The following is the fullest DVD I can make:'
    print d
    if config.has_option('main', 'isoname'):
-       d.makeiso()
+       if not interactive() or \
+               query_yes_no('Proceed making ISO ?') == 'yes':
+           logging.debug('Will make ISO')
+           d.makeiso()
+       else:
+           logging.debug('Will not make ISO')
 
-   if config.has_option('main', 'dontburn'):
+   if config.has_option('main', 'dontburn') or \
+           (interactive() and query_yes_no('Proceed with burning ?') == 'no'):
        logging.debug('Will not burn dvd')
    else:
        logging.debug('Will burn dvd')
        d.burn()
-       
+           
    # Move files to .burned
-   if config.has_option('main', 'dontmove'):
+   if config.has_option('main', 'dontmove') or \
+           (interactive() and \
+                query_yes_no('Move burned files to .burned ?') == 'no'):
        logging.debug('Will not move files to .burned')
    else:
        logging.debug('Will move files to .burned')
        d.moveburned()
        
    # Save to database
-   d.dbsave()
+   if config.has_option('main', 'dontsave') or \
+           (interactive() and \
+                query_yes_no('Save recorded dvd in database ?') == 'no'):
+       logging.debug('Will not save dvd in database')
+   else:
+       logging.debug('Will save dvd in database')
+       d.dbsave()
 
    sys.exit(0)
 
@@ -392,7 +416,7 @@ def check_conf():
 
     logging.warning('I can see this is the first time you are running me, I have \
 created the config file in {0} and the database in {1}, \
-tune the file for your needs'.format(ab_conf_file, ab_db_file))
+tune the file for your needs.'.format(ab_conf_file, ab_db_file))
 
 def db_create():
     conn = sqlite3.connect(ab_db_file)
