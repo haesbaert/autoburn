@@ -8,8 +8,8 @@ import pipes
 import logging
 import ConfigParser
 import os
-import pprint
 import sys
+import time
 
 ab_root      = os.path.join(os.environ['HOME'], '.autoburn/')
 ab_conf_file = os.path.join(ab_root, 'conf')
@@ -391,6 +391,14 @@ def check_conf():
     if os.path.exists(ab_conf_file):
         return
     
+    print 'I can see this is the first time you are running me, I will create \
+the config file in {0} and the database in {1}.'.format(ab_conf_file, ab_db_file)
+    if query_yes_no('Is that ok ?') == 'no':
+        sys.exit(0)
+
+    print 'Setup done, tune the config file to your needs'
+    time.sleep(2)
+    
     if not os.path.exists(ab_root):
         os.mkdir(ab_root)
 
@@ -412,9 +420,8 @@ def check_conf():
     if not os.path.exists(ab_db_file):
         db_create()
 
-    logging.warning('I can see this is the first time you are running me, I have \
-created the config file in {0} and the database in {1}, \
-tune the file for your needs.'.format(ab_conf_file, ab_db_file))
+
+
 
 def db_create():
     conn = sqlite3.connect(ab_db_file)
