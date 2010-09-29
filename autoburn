@@ -109,9 +109,10 @@ class Dvd():
         paths = ''
         for e in self.entries:
             paths += pipes.quote(e.path) + ' '
-        
-        cmdstr = 'mkisofs -o {0} -R -J -r -graft-points -A teste -V teste {1}'. \
-            format(isopath, paths)
+        app_id = pipes.quote(self.date)
+        volume_id = pipes.quote(self.date)
+        cmdstr = 'mkisofs -o {0} -R -J -r -graft-points -A {1} -V {2} {3}'. \
+            format(isopath, app_id, volume_id, paths)
     
         logging.debug('mkisofs string: ' + cmdstr)
 
@@ -123,8 +124,10 @@ class Dvd():
         for e in self.entries:
             paths += pipes.quote(e.path) + ' '
             
-        cmdstr = 'growisofs -dvd-compat -Z {0} -V {1} -R -J -r -graft-points {2}'. \
-            format(config.get('main', 'device'), pipes.quote(self.date), paths)
+        app_id = pipes.quote(self.date)
+        volume_id = pipes.quote(self.date)
+        cmdstr = 'growisofs -dvd-compat -Z {0} -V {1} -A {2} -R -J -r -graft-points {3}'. \
+            format(config.get('main', 'device'), app_id, volume_id, paths)
         logging.debug('burnstring = ' + cmdstr)
         
         if os.system(cmdstr) != 0:
