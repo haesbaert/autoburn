@@ -139,8 +139,6 @@ class Dvd():
                 (self.date, self.date, self.size))
             c.execute('select last_insert_rowid() as id_last_dvd from dvds')
             last_id = c.next()[0]
-#             for row in c:
-#                 last_id = row[0]
             if not last_id:
                 raise RuntimeError('select statement for dvd failed.')
             for e in self.entries:
@@ -244,7 +242,7 @@ def doconf():
                       dest    = 'verbose',
                       action  = 'count',
                       default = 1,
-                      help    = 'Verbosity level')
+                      help    = 'Verbosity level, can be used multiple times')
 
     (options, args) = parser.parse_args()
    
@@ -399,7 +397,7 @@ def check_conf():
     cf = ConfigParser.ConfigParser()
     cf.add_section('main')
     cf.add_section('limits')
-    cf.set('main', 'device', '/dev/dvdrom')
+    cf.set('main', 'device', '/dev/dvdrw')
     cf.set('main', 'mails', 'foo@bar.com')
     cf.set('main', 'db', ab_db_file)
     cf.set('limits', 'min_dvd_ratio', 0.90)
